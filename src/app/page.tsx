@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { GRANT_OPPORTUNITIES } from "@/data/grants";
 import { OrgProfile, OrgStage, ScoredGrant } from "@/types/grant";
 import { scoreGrants } from "@/lib/scoring";
+import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from "recharts";
 
 const profileSchema = z.object({
   orgName: z.string().min(2, "Name is required"),
@@ -64,6 +65,20 @@ const copyToClipboard = (text: string) => {
   }
 };
 
+const buildFocusData = (scores: ScoredGrant[]) => {
+  const aggregate = new Map<string, number>();
+  scores.forEach((grant) => {
+    grant.focusAreas.forEach((area) => {
+      const current = aggregate.get(area) ?? 0;
+      aggregate.set(area, Math.max(current, grant.score));
+    });
+  });
+  return Array.from(aggregate.entries())
+    .map(([focus, score]) => ({ focus, score }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+};
+
 export default function Home() {
   const [insight, setInsight] = useState<InsightState>({
     scores: [],
@@ -94,6 +109,12 @@ export default function Home() {
   });
 
   const topGrant = insight.scores[0];
+  const focusChartData = useMemo(() => buildFocusData(insight.scores), [insight.scores]);
+  const fastTrackCount = insight.scores.filter((grant) => grant.decisionSpeed === "Fast-track").length;
+  const dueSoonCount = insight.scores.filter((grant) => daysUntil(grant.deadline) <= 45).length;
+  const avgScore =
+    insight.scores.slice(0, 3).reduce((acc, grant) => acc + grant.score, 0) /
+    Math.max(1, Math.min(3, insight.scores.length));
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/incompatible-library
@@ -148,6 +169,29 @@ export default function Home() {
               Input the real constraints of your venture and GrantPilot scores premium grant programs, then
               spins a funder-ready micro-brief powered by GPT-4. No more 40-tab searching.
             </p>
+            <div className="mt-6 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-300 sm:grid-cols-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Top match</p>
+                <p className="text-2xl font-semibold text-white">
+                  {insight.scores.length ? `${Math.round(topGrant?.score ?? 0)}%` : "—"}
+                </p>
+                <p>Ready in {dueSoonCount || "—"} deadlines &lt;45 days.</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Average score</p>
+                <p className="text-2xl font-semibold text-white">
+                  {insight.scores.length ? `${Math.round(avgScore)}%` : "—"}
+                </p>
+                <p>Benchmark across your top trio.</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Fast-track pool</p>
+                <p className="text-2xl font-semibold text-white">
+                  {insight.scores.length ? fastTrackCount : "—"}
+                </p>
+                <p>Programs that wire funds within 30 days.</p>
+              </div>
+            </div>
           </div>
 
           <Card className="bg-slate-900/60 border-slate-800">
@@ -431,6 +475,40 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-900 bg-slate-900/70">
+              <CardHeader>
+                <CardTitle className="text-xl text-white">Focus alignment radar</CardTitle>
+                <CardDescription className="text-slate-400">
+                  Visualizes how funders’ thesis areas overlap with your mission keywords.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-72">
+                {focusChartData.length === 0 ? (
+                  <p className="text-sm text-slate-400">
+                    Run GrantPilot to see how your work lands across the funding landscape.
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={focusChartData}>
+                      <PolarGrid stroke="rgba(148, 163, 184, 0.3)" />
+                      <PolarAngleAxis
+                        dataKey="focus"
+                        tick={{ fill: "#94a3b8", fontSize: 12 }}
+                        tickLine={false}
+                      />
+                      <Radar
+                        dataKey="score"
+                        stroke="#38bdf8"
+                        fill="#38bdf8"
+                        fillOpacity={0.25}
+                        dot={{ r: 2, fill: "#bae6fd" }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
                 )}
               </CardContent>
             </Card>
