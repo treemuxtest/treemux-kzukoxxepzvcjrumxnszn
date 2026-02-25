@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { type Resolver, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, MapPin, Rocket, Sparkles, TimerReset } from "lucide-react";
@@ -92,7 +92,7 @@ export default function Home() {
   });
 
   const form = useForm<ProfileForm>({
-    resolver: zodResolver(profileSchema),
+    resolver: zodResolver(profileSchema) as Resolver<ProfileForm>,
     defaultValues: {
       orgName: "Common Thread Labs",
       mission:

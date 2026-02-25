@@ -56,12 +56,7 @@ export async function POST(req: Request) {
   try {
     const response = await client.responses.create({
       model: pickModel(provider),
-      input: [
-        {
-          role: "user",
-          content: [{ type: "text", text: buildPrompt(body) }],
-        },
-      ],
+      input: buildPrompt(body),
       max_output_tokens: 250,
     });
 
